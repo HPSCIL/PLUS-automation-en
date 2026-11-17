@@ -38,6 +38,10 @@ Every step carries quality checks: mismatched data formats are caught and auto-f
 - **Honest reporting**: accuracy metrics reported as they are, with "backtest validation" and "future prediction" modes clearly distinguished
 - **Reproducible**: re-runs with the same configuration are statistically consistent; the whole process is archived
 
+## Contact
+
+For issues, feedback, or questions about this project, email: **1202621221@cug.edu.cn**
+
 ## License
 
 - The PLUS engine is distributed with the package under the authorization of its author, Prof. Xun Liang
