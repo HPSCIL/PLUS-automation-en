@@ -49,8 +49,10 @@ Round 1 · data source & modeling parameters
      Additional source (second question; users who picked one of the first 3 just choose option 1 "none"):
      · None — use the source from the first question
      · WorldCover 30m/10m 2020-2021 (no registration; only 2020/2021)
-     · Stanford derived data (proxy required; after downloading via proxy, provide via --manual)
-     · My own multi-year tifs (choosing this immediately pops an input box for the folder path)
+     · Stanford derived data (proxy required; provide the folder after downloading via proxy)
+     · My own multi-year tifs (an input box for the folder path follows immediately; if you know the
+       dataset name [e.g. CNLUCC/GlobeLand30], tell the AI — a match in the built-in legend library
+       means no legend table needed)
      Year coupling: Esri limited to 2017-2025; CLCD 1990-2022; WorldCover only 2020/2021.
      If CLCD is chosen, run in parallel: after the remaining questions, start the driver download first
      (in the background), while guiding the user through registration ("Data source registration guide");
@@ -99,9 +101,25 @@ Round 3 · policy & output
 
 Execute only after all items are answered.
 
-**When item 1 = "own data"**: immediately pop an input box for the data folder path; if the naming is irregular, guide the user to state each file's year; if the classification system differs, confirm a custom mapping.
+**When item 1 = "own data", or item 1b = Stanford**: immediately pop an input box for the data folder path (if the naming is irregular, guide the user to state each file's year); **ask for the dataset name** ("which product is this? CNLUCC/GlobeLand30/GLC_FCS30/MODIS/ESA CCI/FROM-GLC/GlobCover, or unknown?") → match it against the "Built-in legend library" below: a match → use the corresponding source key (e.g. cnlucc) in the answers, no legend table needed; no match → lulc_source=user, and the user must supply a classification legend JSON ({"code": "semantic name"} — the AI guides the user, or researches the legend and confirms it with the user; **the AI must never guess a legend**).
 
-## Data source registration guide (walk the user through it step by step when a "registration required" source is chosen)
+## Built-in legend library (for user-provided tifs; a match means no legend table needed)
+
+| Dataset the user names | `--lulc-source` key | Years | Resolution | Legend basis |
+|---|---|---|---|---|
+| CNLUCC (CAS RESDC) | cnlucc | 13 epochs, 1980–2025, discontinuous | 30m | 6 first-level classes; second-level codes auto-merge |
+| GlobeLand30 (MNR China) | globeland30 | 2000/2010/2020 | 30m | 10 classes: cropland/forest/grassland/shrub/wetland/water/tundra/built-up/bare/glacier→bare |
+| GLC_FCS30 (AIRCAS) | glc_fcs30 | 1985-2022 | 30m | 35 second-level codes merged into 9 semantic classes |
+| MODIS MCD12Q1 (IGBP) | modis_igbp | 2001-2023 annual | **500m (coarse; noted in the report)** | 17 classes merged into 9 semantic classes |
+| MODIS MCD12Q1 (UMD) | modis_umd | 2001-2023 annual | **500m (coarse)** | 16 classes merged into 9 semantic classes; **⚠️ UMD's 0 = water conflicts with PLUS's 0 = background — re-code water 0 (e.g. 0→18) before upload, otherwise the pipeline errors out** |
+| ESA CCI | esa_cci | 1992-2020 annual | 300m | 37 classes merged into 9 semantic classes |
+| GlobCover (ESA MERIS) | globcover | 2005-06/2009 | 300m | 22 classes merged into 9 semantic classes |
+| FROM-GLC (Tsinghua, Gong Peng) | from_glc | 2015 (30m) / 2017, 2019 (10m) | 30m/10m | 10 classes: tundra→grassland, snow/ice→bare |
+| Unknown system | user | any | any | `--lulc-legend-json` required |
+
+All of the above use the "manual download → folder via --lulc-dir" mode: the skill auto-recognizes years from filenames, auto-reclassifies, and everything downstream is identical to the auto-download channels (auto uint8 conversion, boundary cropping, multi-epoch grid alignment, value-range vs legend check, out-of-legend check, etc. run automatically inside the scripts and print to the console — the AI does not need to manage them step by step). The user only needs to provide **GeoTIFF format** data (convert HDF/NetCDF with GIS software first).
+
+## Data source registration guide (CLCD only; all other sources are user-downloaded and provided as a folder — no registration guidance)
 
 **CLCD (NCDC platform, annual 1990-2022; choose it when years before 2017 are needed)**:
 1. Open the National Cryosphere Desert Data Center: https://ftp.ncdc.ac.cn (register an account)
@@ -116,7 +134,7 @@ Execute only after all items are answered.
    or simply tell the AI the credentials and let it write the file.
 6. Re-run the download afterwards; the skill picks up the new credentials automatically.
 
-**Other registration-required sources (being added one by one, same rules)**: register → apply for data access on the platform → approval → give credentials to the AI / put them in `~/.plus-full/`. Each provider's detailed steps will be added to this section as it is integrated.
+**All other sources (CNLUCC/GlobeLand30/GLC_FCS30/MODIS/GlobCover/FROM-GLC etc.) get no registration guidance**: the user downloads the data themselves → provides the folder via "my own multi-year tifs" → the skill identifies the source (see the legend library table) → automatic preprocessing and simulation. The skill's job = correct identification and processing once the data is in hand — registration/downloading is out of scope.
 
 ## Execution
 
@@ -149,6 +167,12 @@ python scripts/run_full.py --region 鄂州市 --years 2020,2021 --predict 2025 -
 # User-supplied driving factors (skips auto-download; df_*.tif naming is enough, inconsistent grids are auto-resampled/aligned)
 python scripts/run_full.py --region 鄂州市 --years 2010,2015,2020 --predict 2030 --drivers-dir D:\my_factors
 
+# CNLUCC (RESDC, provided after manual download; built-in 6-class legend auto-reclassifies, second-level codes auto-merge)
+python scripts/run_full.py --region 鄂州市 --years 2000,2010,2020 --predict 2030 --lulc-source cnlucc --lulc-dir D:\cnlucc_data
+
+# User's own data (unknown classification system: must provide the legend {code: semantic name})
+python scripts/run_full.py --region 鄂州市 --years 2000,2010,2020 --predict 2030 --lulc-source user --lulc-dir D:\my_lulc --lulc-legend-json "{\"1\":\"耕地\",\"2\":\"林地\",\"3\":\"水域\"}"
+
 # Regenerate only the single summary report (no re-modeling; reuses existing products)
 python scripts/make_report.py --data-dir ~/plus_skill_GIS_data/371700 --project project_full_2030.json
 ```
@@ -178,7 +202,7 @@ python scripts/make_report.py --data-dir ~/plus_skill_GIS_data/371700 --project 
 
 ## Stages (①→⑨)
 
-1. **①Land-use download**: Esri Land Cover (no registration, annual 2017-2025, server-side cropping by extent) / CLCD (NCDC FTP, per-province package fallback + national grid alignment, credentials required) / WorldCover (AWS S3 tiles, only 2020/2021, 10m→30m majority resampling, Albers projection); all cropped to the boundary, grids force-aligned across epochs
+1. **①Land-use download**: Esri Land Cover (no registration, annual 2017-2025, server-side cropping by extent) / CLCD (NCDC FTP, per-province package fallback + national grid alignment, credentials required) / WorldCover (AWS S3 tiles, only 2020/2021, 10m→30m majority resampling, Albers projection); all cropped to the boundary, grids force-aligned across epochs; **user-provided data** (CNLUCC/own/Stanford: `--lulc-dir` points at the folder, filenames matched by 4-digit year and auto-imported, download skipped; CNLUCC has a built-in 6-class legend, own/Stanford need `--lulc-legend-json`)
 2. **②Driving factors**: default 17 auto-downloaded (terrain/climate/population/road-water distances, auto-aligned to the reference raster; existing grid-consistent factors are reused directly) / user-supplied folder (`--drivers-dir`: df_*.tif; inconsistent grids/projections are **auto-resampled and aligned**, valid values must not be all-zero — rejected otherwise)
 3. **③Semantic reclassification**: built-in source legends (CLCD 9 classes); automatic mapping = union of per-epoch classes → consecutive codes
 4. **④Check & convert**: code continuity / uint8 / nodata validation + conversion to PLUS format (rasterio fast path, pixel-identical with engine products)

@@ -75,8 +75,37 @@ Files carrying these strings (must be edited together if renamed again):
    - a synthetic `make_report.py` run (see 冒烟 fixture pattern used on 2026-11-17)
 5. Document non-synced diffs here (date + list), so the drift is always visible.
 
-## 6. Fixes made in the English pack first (pending backport decision)
+## 6. Fixes & changes made first in one pack
 
+- **2026-11-17 (CNLUCC data source + user-data path, added in parallel in both packs)**:
+  Chinese pack developed first, English pack ported same day via Edit (logic identical; only
+  user-visible strings translated). Changes:
+  1. `reclassify_lulc.py`: built-in `cnlucc` legend (first-level 6 classes + second-level 25 codes
+     merged to first-level; verified against RESDC documentation) + new `--legend-json` parameter
+     (custom legend file for user-supplied data); `user` key = empty legend placeholder.
+  2. `run_full.py`: `--lulc-source` accepts `cnlucc/user/stanford`; new `--lulc-dir` (folder of
+     user tifs, matched by 4-digit year in filename) and `--lulc-legend-json` (required for
+     user/stanford); stage ① skips download for these sources and imports via `import_user_lulc()`;
+     stage ③ builds the legend from the user table and passes `--legend-json`; CNLUCC year
+     validation against its 13 epochs; data_source labeling.
+  3. `ask_questions.py`: Q1b gained a CNLUCC option (reorganized to 4 options); validate checks
+     CNLUCC years / `lulc_dir` / `lulc_legend_json`; **fixed a pre-existing bug: `--finalize-file`
+     was promised in the docstring but not implemented** (added, file mode is more robust than
+     hand-built JSON strings).
+  4. `run_ask.py`: maps `lulc_dir` / `lulc_legend_json` answers to run_full arguments.
+  5. `make_report.py`: data-source wording for cnlucc/stanford (both `_src` and `_head_src`).
+  6. `SKILL.md`: Q1b options, RESDC registration guide, execution examples, stage-① description.
+  Note: the English pack's `cnlucc` legend keeps the Chinese semantic names (consistent with the
+  other legends — class-name English-ization remains a separate project, ALIGN.md §3).
+- **2026-11-17 (legend-library expansion, both packs same day)**: four more built-in legends
+  added — `globeland30`, `glc_fcs30`, `modis_igbp`, `esa_cci` (all verified via official docs:
+  GlobeLand30 official 10-class scheme / GLC_FCS30D User Guides + ESSD / LPDAAC MCD12Q1 User Guide
+  v6.1 / ESA CCI Brief + Quick User Guides). All use the --lulc-dir manual-download mode; year-range
+  validation added; SKILL.md gained a "Built-in legend library" lookup table + hard rule "the AI must
+  never guess a legend". Dynamic World skipped (monthly probability product, needs aggregation).
+  Also fixed a real bug in `reclassify`: the unmapped-class check only exempted "code 0 named 背景",
+  so Esri's 10 (cloud) and GlobeLand30's 255 (fill) were wrongly rejected — now any code whose
+  semantic name is 背景 is exempt (consistent with the output layer, which maps 背景 to 0).
 - **2026-11-17**: `make_report.py` `_head_src` in `build_report` was missing the `esri` key →
   Esri-source reports said "user-supplied …" in the opening line. Verified by live run (opening line
   said "user-supplied" while the parameter table said "Esri" — self-contradictory), fixed here by

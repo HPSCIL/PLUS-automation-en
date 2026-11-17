@@ -170,6 +170,15 @@ def _sec_meta(proj, predict, target, seq, region, backtest, water, mapping, fact
     _src = {"clcd": "CLCD 30m annual data (CAS, Yang & Huang 2021)",
             "worldcover": _wc,
             "esri": "Esri Sentinel-2 10m annual land cover (annual 2017-2025, aggregated to 30m; CC BY 4.0)",
+            "cnlucc": "CNLUCC 30m multi-epoch land use (CAS RESDC, Xu Xinliang et al.; 13 epochs, downloaded manually)",
+            "globeland30": "GlobeLand30 30m land cover (MNR China; 2000/2010/2020, downloaded manually)",
+            "glc_fcs30": "GLC_FCS30 30m fine land cover (AIRCAS; 1985-2022, downloaded manually)",
+            "modis_igbp": "MODIS MCD12Q1 IGBP 500m land cover (annual 2001-2023, coarse resolution, downloaded manually)",
+            "esa_cci": "ESA CCI 300m land cover (annual 1992-2020, downloaded manually)",
+            "from_glc": "FROM-GLC land cover (Tsinghua, Gong Peng's team; 30m 2015 / 10m 2017·2019, downloaded manually)",
+            "globcover": "GlobCover 300m land cover (ESA MERIS; 2005-06/2009, downloaded manually)",
+            "modis_umd": "MODIS MCD12Q1 UMD 500m land cover (annual 2001-2023, coarse resolution, downloaded manually)",
+            "stanford": "Stanford derived data (downloaded via proxy, user-provided)",
             "user": "User-supplied land-use data (per-year tifs provided by the user)"}
     L.append(f"| Data source | {_src.get(_ds, _src['user'])} |")
     L.append(f"| Training period | {proj.get('early_year')}–{proj.get('late_year')} |")
@@ -614,6 +623,11 @@ def build_report(data_dir, out_name, proj, predict, region,
     _ds = _data_source(proj, data_dir)
     _head_src = {"clcd": "CLCD 30m ", "worldcover": "ESA WorldCover 10m ",
                  "esri": "Esri Sentinel-2 10m ",
+                 "cnlucc": "CNLUCC 30m ", "stanford": "Stanford derived ",
+                 "globeland30": "GlobeLand30 30m ", "glc_fcs30": "GLC_FCS30 30m ",
+                 "modis_igbp": "MODIS MCD12Q1 500m ", "esa_cci": "ESA CCI 300m ",
+                 "from_glc": "FROM-GLC ", "globcover": "GlobCover 300m ",
+                 "modis_umd": "MODIS MCD12Q1 UMD 500m ",
                  "user": "user-supplied "}
     head = (f"Using {_head_src.get(_ds, _head_src['user'])}{early_year}–{late_year} multi-epoch "
             f"land-use data as the training period, the PLUS model (expansion analysis + LEAS random "

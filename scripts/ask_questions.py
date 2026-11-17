@@ -27,7 +27,9 @@
   "water_lock": "",                 # 开放题:AI 检索后填,如 "lock:该地有黄河干流..."
   "matrix_choice": "regional",      # regional(区域化修改,推荐) | default | custom
   "matrix_restrictions": [],        # regional 时 AI 检索后填 [{"from","to","allow","依据"}]
-  "output_dir": ""                  # 空 = 默认(用户主目录)
+  "output_dir": "",                 # 空 = 默认(用户主目录)
+  "lulc_dir": "",                   # cnlucc/user/stanford 必填:用户提供 tif 的文件夹路径
+  "lulc_legend_json": ""            # user/stanford 必填:{"编码":"语义名"} 分类图例
 }
 """
 import json
@@ -42,6 +44,18 @@ except Exception:
 ESRI_YEARS = (2017, 2025)
 CLCD_YEARS = (1990, 2022)
 WC_YEARS = (2020, 2021)
+# CNLUCC (RESDC) 13 epochs (not annual)
+CNLUCC_YEARS = {1980, 1990, 1995, 2000, 2005, 2008, 2010, 2013, 2015, 2018, 2020, 2023, 2025}
+# 2026-11-17 legend-library expansion: year ranges of the built-in-legend sources (inclusive)
+BUILTIN_LEGEND_SOURCE_RANGES = {
+    "globeland30": (2000, 2020),   # only 2000/2010/2020 (range check only)
+    "glc_fcs30": (1985, 2022),
+    "modis_igbp": (2001, 2023),    # 500m coarse resolution
+    "esa_cci": (1992, 2020),
+    "from_glc": (2015, 2019),      # 2015 (30m) / 2017, 2019 (10m)
+    "globcover": (2005, 2009),     # 2005-06 / 2009
+    "modis_umd": (2001, 2023),
+}
 
 
 def questions():
@@ -72,8 +86,10 @@ def questions():
             "options": [
                 "None — use the source from the first question",
                 "WorldCover 30m/10m 2020-2021 (no registration; only 2020/2021)",
-                "Stanford derived data (proxy required; after downloading via proxy, provide via --manual)",
-                "My own multi-year tifs (choosing this immediately pops an input box for the folder path)",
+                "Stanford derived data (proxy required; provide the folder after downloading via proxy)",
+                "My own multi-year tifs (an input box for the folder path follows immediately; if you "
+                "know the dataset name [e.g. CNLUCC/GlobeLand30], tell the AI — a match in the built-in "
+                "legend library means no legend table needed)",
             ],
         },
         "Q2_years": {
@@ -152,7 +168,9 @@ def validate(answers):
     errs = []
     src = answers.get("lulc_source")
     years = answers.get("years") or []
-    if src not in ("esri", "clcd", "worldcover", "stanford", "user"):
+    if src not in ("esri", "clcd", "worldcover", "cnlucc", "stanford", "user",
+                   "globeland30", "glc_fcs30", "modis_igbp", "esa_cci",
+                   "from_glc", "globcover", "modis_umd"):
         errs.append(f"invalid lulc_source: {src}")
         return False, errs
     if src == "esri" and any(not (ESRI_YEARS[0] <= y <= ESRI_YEARS[1]) for y in years):
@@ -161,6 +179,17 @@ def validate(answers):
         errs.append(f"CLCD years must be {CLCD_YEARS[0]}-{CLCD_YEARS[1]}, got {years}")
     if src == "worldcover" and any(y not in WC_YEARS for y in years):
         errs.append(f"WorldCover only has {list(WC_YEARS)}, got {years}")
+    if src == "cnlucc" and any(y not in CNLUCC_YEARS for y in years):
+        errs.append(f"CNLUCC only has 13 epochs {sorted(CNLUCC_YEARS)}, got {years}")
+    if src in BUILTIN_LEGEND_SOURCE_RANGES:
+        lo, hi = BUILTIN_LEGEND_SOURCE_RANGES[src]
+        if any(not (lo <= y <= hi) for y in years):
+            errs.append(f"{src} year range is {lo}-{hi}, got {years}")
+    if src in ("cnlucc", "user", "stanford") or src in BUILTIN_LEGEND_SOURCE_RANGES:
+        if not answers.get("lulc_dir"):
+            errs.append("this data source requires lulc_dir (folder path of the user-provided tifs)")
+    if src in ("user", "stanford") and not answers.get("lulc_legend_json"):
+        errs.append("user/stanford data sources require lulc_legend_json (classification legend, format {\"code\":\"semantic name\"})")
     if len(years) < 2:
         errs.append("at least 2 historical epochs are required")
     res = answers.get("lulc_res")
@@ -190,6 +219,23 @@ def main():
     if "--finalize" in sys.argv:
         raw = sys.argv[sys.argv.index("--finalize") + 1]
         answers = json.loads(raw)
+        ok, errs = validate(answers)
+        if not ok:
+            print("❌ Answer validation failed:")
+            for e in errs:
+                print(f"   - {e}")
+            sys.exit(1)
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "..", "answers.json"), "w", encoding="utf-8") as f:
+            json.dump(answers, f, ensure_ascii=False, indent=2)
+        print("✅ Answers validated, answers.json written")
+        return
+    if "--finalize-file" in sys.argv:
+        # file mode (2026-11-17 added: the docstring had promised it but it was missing;
+        # hand-built JSON strings are escape-error-prone, a file is more robust)
+        path = sys.argv[sys.argv.index("--finalize-file") + 1]
+        with open(path, encoding="utf-8") as f:
+            answers = json.load(f)
         ok, errs = validate(answers)
         if not ok:
             print("❌ Answer validation failed:")
