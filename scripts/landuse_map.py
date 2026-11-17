@@ -33,14 +33,19 @@ plt.rcParams["axes.unicode_minus"] = False  # 负号正常显示,不变成方框
 # 【参数】语义配色表:名称→颜色(RGB 0~1)。加新地类名、改某个颜色都在这里
 # 名称依据:PLUS 《教程一》表 1(20250531 版)"示例数据描述":
 #   1:草地 2:落叶林 3:耕地 4:城镇用地 5:裸地 6:水域 7:常绿林
+# 2026-11-17 英文包:追加英文键(英文语义名同样命中语义色),中文键保留双兼容
 NAME_COLORS = {
-    "草地": (0.62, 0.80, 0.35),
-    "落叶林": (0.13, 0.47, 0.21),
-    "耕地": (0.98, 0.85, 0.40),
-    "城镇用地": (0.85, 0.22, 0.22),
-    "裸地": (0.72, 0.65, 0.55),
-    "水域": (0.15, 0.45, 0.75),
-    "常绿林": (0.10, 0.35, 0.15),
+    "草地": (0.62, 0.80, 0.35), "Grassland": (0.62, 0.80, 0.35),
+    "落叶林": (0.13, 0.47, 0.21), "常绿林": (0.10, 0.35, 0.15),
+    "Forest": (0.13, 0.47, 0.21),
+    "耕地": (0.98, 0.85, 0.40), "Cropland": (0.98, 0.85, 0.40),
+    "城镇用地": (0.85, 0.22, 0.22), "Built-up": (0.85, 0.22, 0.22),
+    "裸地": (0.72, 0.65, 0.55), "Bareland": (0.72, 0.65, 0.55),
+    "水域": (0.15, 0.45, 0.75), "Water": (0.15, 0.45, 0.75),
+    "Shrubland": (0.55, 0.65, 0.30),
+    "Wetland": (0.25, 0.60, 0.55),
+    "Snow/Ice": (0.90, 0.90, 0.95),
+    "Tundra": (0.75, 0.70, 0.65),
 }
 
 # ---- 字号规则(HPSCIL 规范:字体保持一致、字号足够清晰)----
@@ -257,12 +262,12 @@ def add_legend(ax, classes, color_table, labels, font, ncol, x=0.02, outside=Fal
     if outside:
         fig = ax.figure
         fig.legend(handles=legend_patches, loc="upper center",
-                   bbox_to_anchor=(0.5, 0.02), title="图例",
+                   bbox_to_anchor=(0.5, 0.02), title="Legend",
                    frameon=False, ncol=ncol, borderpad=0.3, labelspacing=0.4,
                    columnspacing=1.0, fontsize=font, title_fontsize=font + 1)
     else:
         ax.legend(handles=legend_patches, loc="lower left",
-                  bbox_to_anchor=(x, 0.03), title="图例",
+                  bbox_to_anchor=(x, 0.03), title="Legend",
                   frameon=False, ncol=ncol, borderpad=0.3, labelspacing=0.4,
                   columnspacing=1.0, fontsize=font,
                   title_fontsize=font + 1)
@@ -467,7 +472,7 @@ def make_sequence_map(tif_year_pairs, output_path, names=None, dpi=150, title=No
             d = s.read(1)
         valid = np.ma.masked_where(np.isin(d, NODATA_VALUES), d)
         ax.imshow(valid, cmap=cmap, norm=norm, interpolation="nearest")
-        ax.set_title(f"{year} 年", fontsize=12)
+        ax.set_title(f"{year}", fontsize=12)
         ax.set_xticks([])
         ax.set_yticks([])
         for sp in ax.spines.values():

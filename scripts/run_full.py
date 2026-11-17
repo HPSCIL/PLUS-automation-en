@@ -1223,7 +1223,7 @@ def main():
         try:
             # 整图大标题(2026-11-10 用户要求):"某市 首年-末年 年土地利用对比"
             _seq_title = (f"{args.region} {seq_sims[0]['year']}-{seq_sims[-1]['year']}"
-                          f" 年土地利用对比")
+                          f" Land Use Comparison")
             make_sequence_map(pairs, seq_fig, names=name_str, dpi=150, title=_seq_title)
             fig_line += f"; 多期对比: {seq_fig}"
         except Exception as e:
