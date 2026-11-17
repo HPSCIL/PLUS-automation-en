@@ -41,15 +41,18 @@ Files carrying these strings (must be edited together if renamed again):
 ## 3. NOT translated (deliberately, per user decision 2026-11-17)
 
 - Code comments and docstrings — kept in Chinese (both packs).
-- Internal `print`s in scripts — kept in Chinese.
-- Sub-report **contents** (download_report / drivers_report / reclass_notes / pipeline_report)
-  — file names are English, contents are still Chinese. `make_report.py` excerpts the
-  `## 特殊情况 / ## Special cases` heading from reclass_notes (both patterns accepted).
-- Land-class semantic names (CLCD legend in `reclassify_lulc.py`, legend labels in
-  `landuse_map.py`, synonym groups in `run_pipeline.py`) — **data-level Chinese strings**.
-  English-pack figures/matrices will therefore show Chinese class names. Changing them touches
-  reclassification output, matrix matching and reports — treat as a separate project if ever needed.
+- Internal `print`s in scripts — mostly kept in Chinese; strings that reach the
+  summary report (stage names, downgrade/alignment/crop notes) are English.
+- Sub-report **contents** (download_report / drivers_report / reclass_notes /
+  pipeline_report) — file names are English; reclass_notes excerpts the
+  `## Special cases` heading (both Chinese and English patterns accepted).
 - The three manual PDFs — contents remain Chinese (copyright HPSCIL; referenced by English names).
+- **Class semantic names — English-ized in the English pack on 2026-11-17** (user decision:
+  figures and the summary report must be fully English). Legend values now use
+  English names (Cropland/Forest/Shrubland/Grassland/Water/Wetland/Built-up/Bareland/
+  Snow-Ice/Tundra/Background); `SYNONYM_GROUPS` keeps the Chinese groups AND adds English
+  aliases, so matrix/water matching works for both; `IRREVERSIBLE_CLASSES` includes the
+  English anchors. The Chinese pack keeps Chinese semantic names.
 
 ## 4. Known product-level limitations of the English pack (not translation bugs)
 

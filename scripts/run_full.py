@@ -237,10 +237,10 @@ def ensure_uint8(tif_path):
     meta.update(dtype="uint8", nodata=None)
     with rasterio.open(tif_path, "w", **meta) as dst:
         dst.write(out, 1)
-    note = (f"【自动转 uint8】{name} 原数据类型 {a.dtype},已自动转为 uint8")
+    note = (f"【auto uint8 conversion】{name} original dtype {a.dtype}, converted to uint8")
     if neg:
-        note += f"(nodata 哨兵值 {neg} → 0 背景)"
-    note += "。\n"
+        note += f"(nodata sentinels {neg} → 0 background)"
+    note += ".\n"
     print(f"  🔧 {note.strip()}")
     return note
 
@@ -333,9 +333,10 @@ def check_extent_uncropped(data_dir, years, region, cache_dir, no_check=False):
         d_deg2 = abs((dmaxx - dminx) * (dmaxy - dminy))
         ratio2 = d_deg2 / b_deg2 if b_deg2 > 0 else 0
         print(f"  ✓ 代裁剪完成:数据覆盖 {ratio:.0f} 倍 → {ratio2:.1f} 倍(边界外已置 0)")
-        return (f"【自动代裁剪】检测到用户数据未按研究区裁切(覆盖为边界 {ratio:.0f} 倍),"
-                f"已自动按研究区边界裁剪全部 {len(years)} 期(窗口裁剪+边界掩膜,边界外置 0,"
-                f"保持原投影与分辨率;裁剪后覆盖 ≈ 边界 {ratio2:.1f} 倍)。\n")
+        return (f"【auto crop】detected uncropped user data ({ratio:.0f}× the boundary), "
+                f"auto-cropped all {len(years)} epochs to the study boundary (window crop + "
+                f"boundary mask, outside set to 0, original projection/resolution kept; "
+                f"after crop ≈ {ratio2:.1f}× the boundary).\n")
     except Exception as e:
         print(f"❌ 自动代裁剪失败: {e}")
         print("   请先用 GIS 按研究区边界裁好数据再重跑(或确认边界文件正确)。")
@@ -424,11 +425,16 @@ def parse_zero_advice(rc_out):
 
 
 # 规则建议里的类名与数据图例可能不同名(CLCD 的城镇类叫"不透水面",规则写"建设用地")
+# 2026-11-17 英文包:每组追加英文别名(英文图例键也能被规则建议解析命中)
 SEMANTIC_ALIASES = {
-    "建设用地": ("不透水面", "建设用地", "城镇用地", "建成区", "人工表面"),
-    "耕地": ("耕地", "水田", "旱地", "农田"),
-    "草地": ("草地", "牧草地", "稀疏草地"),
-    "森林": ("森林", "林地", "落叶林", "常绿林"),
+    "建设用地": ("不透水面", "建设用地", "城镇用地", "建成区", "人工表面",
+                 "Built-up", "Impervious surface"),
+    "耕地": ("耕地", "水田", "旱地", "农田", "Cropland"),
+    "草地": ("草地", "牧草地", "稀疏草地", "Grassland"),
+    "森林": ("森林", "林地", "落叶林", "常绿林", "Forest"),
+    "水域": ("水域", "水体", "Water"),
+    "湿地": ("湿地", "Wetland"),
+    "裸地": ("裸地", "未利用地", "Bareland"),
 }
 
 
@@ -456,14 +462,14 @@ def auto_merge_zero_classes(rc_out, mapping_path, mapping, data_dir):
     for cls, (target_sem, basis) in sorted(advice.items()):
         resolved = resolve_target(target_sem, orig.keys())
         if resolved is None:
-            return None, [f"类别 {cls} 建议并入 {target_sem},但映射里没有同类"
+            return None, [f"Class {cls} 建议并入 {target_sem},但映射里没有同类"
                           f"({', '.join(orig.keys())})"] + logs
         target_code = orig[resolved]
         if target_code in advice:
-            return None, [f"类别 {cls} 建议并入的 {resolved} 本身也是 0 像元类,规则冲突"] + logs
+            return None, [f"Class {cls} 建议并入的 {resolved} 本身也是 0 像元类,规则冲突"] + logs
         alias[cls] = target_code
         merged_sems = [s for s, c in orig.items() if c == cls]
-        note = f"类别{cls}({'/'.join(merged_sems)}) → {resolved}"
+        note = f"Class {cls}({'/'.join(merged_sems)}) → {resolved}"
         if resolved != target_sem:
             note += f"(规则建议'{target_sem}',映射中对应'{resolved}')"
         logs.append(f"{note};依据:{basis}")
@@ -693,7 +699,7 @@ def main():
                                                 args.no_extent_check)
             if _crop_note:
                 downgrade_note += _crop_note  # 代裁剪记录进重分类说明/报告,可追溯
-            tick("① 土地利用数据(用户提供)", t1,
+            tick("① Land-use data (user-provided)", t1,
                  inputs=args.lulc_dir, outputs=f"lulc_{{{','.join(str(y) for y in years)}}}.tif")
         else:
             # ① 土地利用下载。30m 渠道双数据源(用户 2026-11-10 定):
@@ -717,8 +723,9 @@ def main():
                         print("⚠️ CLCD 下载失败;自动降级:ESA WorldCover 10m 重采样 30m 顶替")
                         print("   (WorldCover 仅 2020/2021 两期,本次年份恰好可用)")
                         args.lulc_source = "worldcover"  # 后续重分类/报告全按 worldcover 走
-                        downgrade_note = ("【数据源降级】CLCD 下载失败,自动改用 ESA WorldCover "
-                                          "10m 重采样 30m(该产品仅 2020/2021 两期)。\n")
+                        downgrade_note = ("【data source fallback】CLCD download failed; "
+                                          "automatically switched to ESA WorldCover 10m resampled to 30m "
+                                          "(this product only has 2020/2021 epochs).\n")
                         run([PY, script("download_lulc.py"), "--region", args.region,
                              "--years", args.years, "--output", data_dir,
                              "--threads", str(args.threads), "--source", "worldcover",
@@ -730,7 +737,7 @@ def main():
                         sys.exit(1)
             else:
                 run(cmd)
-            tick("① 土地利用下载", t1, inputs=args.region,
+            tick("① Land-use download", t1, inputs=args.region,
                  outputs=f"lulc_{{{','.join(str(y) for y in years)}}}.tif")
     global LOG_DIR
     LOG_DIR = os.path.join(data_dir, "logs")
@@ -777,14 +784,14 @@ def main():
              "--ref", ref_tif, "--output", drivers_dir,
              "--use-existing", os.path.abspath(args.drivers_dir)])
         mark_done("2", _ref_fp)
-        tick("② 驱动因子(用户自供)", t2, inputs=args.drivers_dir,
+        tick("② Drivers (user-supplied)", t2, inputs=args.drivers_dir,
              outputs=f"{len([x for x in os.listdir(drivers_dir) if x.startswith('df_')])} 个 df_*.tif")
     elif not stage_done("2", _ref_fp):
         print("=" * 60 + "\n【② 驱动因子下载(默认 17 项)】\n" + "=" * 60)
         run([PY, script("download_drivers.py"), "--region", args.region,
              "--ref", ref_tif, "--output", drivers_dir, "--osm", args.osm])
         mark_done("2", _ref_fp)
-        tick("② 驱动因子下载", t2, inputs=f"参考图 {os.path.basename(ref_tif)}",
+        tick("② Drivers download", t2, inputs=f"参考图 {os.path.basename(ref_tif)}",
              outputs=f"{len([x for x in os.listdir(drivers_dir) if x.startswith('df_')])} 个 df_*.tif")
     else:
         drivers_dir = os.path.join(data_dir, "drivers")
@@ -816,9 +823,9 @@ def main():
         if _aligned:
             print(f"  🔧 已把 {_aligned} 期自动对齐到 {years[-1]} 期网格"
                   f"(最近邻重采样,保持类编码;已记录进重分类说明)")
-            downgrade_note += ("【网格自动对齐】用户提供数据中 "
-                               f"{'、'.join(str(y) for y in _aligned)} 期网格与 {years[-1]} 期不一致,"
-                               f"已自动最近邻重采样对齐(原文件已替换)。\n")
+            downgrade_note += ("【auto grid alignment】user data epochs "
+                               f"{'、'.join(str(y) for y in _aligned)} were not aligned with epoch {years[-1]}, "
+                               f"auto-aligned via nearest-neighbor resampling (originals replaced).\n")
     if args.mapping:
         mapping_path = os.path.abspath(args.mapping)
     else:
@@ -859,8 +866,8 @@ def main():
         # 会产生同名键覆盖 → 目标编码不连续 → PLUS 报错(2026-11-10 加 WorldCover 时发现)
         sem = {}
         for c in sorted(union):
-            name = legend.get(c, f"类别{c}")
-            if name == "背景":
+            name = legend.get(c, f"Class {c}")
+            if name == "Background":
                 # 背景类(0/云等无效像元)不参与建模编码:2026-11-13 郑州实测,
                 # Esri 图中 1 个像元的"云"(10)被编成 7 → 输出编码空洞 → 草地丢成 0
                 # → CARS 0xC0000409 崩溃。背景一律走 0,不进映射。
@@ -929,7 +936,7 @@ def main():
     except Exception:
         pass
 
-    tick("③ 语义重分类", t3, inputs=f"{len(years)} 期原始裁切图",
+    tick("③ Semantic reclassification", t3, inputs=f"{len(years)} 期原始裁切图",
          outputs="mapping_auto.json + lulc_*_rc.tif + 重分类说明.md")
 
     # ④ 检查 + 转换
@@ -938,7 +945,7 @@ def main():
     for y in years:
         run([PY, script("check_landuse.py"),
              os.path.join(data_dir, f"lulc_{y}_rc.tif")], timeout=1800)
-    tick("④ 检查转换", t4, inputs="lulc_*_rc.tif", outputs="lulc_*_rc_uc.tif")
+    tick("④ Check & convert", t4, inputs="lulc_*_rc.tif", outputs="lulc_*_rc_uc.tif")
 
     # 网格一致性检查:所有参与建模的图必须逐像素对齐
     # (缓存里其他年份可能是旧网格裁切,混用会错位;只校验本次用到的年份)
@@ -985,8 +992,8 @@ def main():
     _rev = {}
     for _sem, _code in _m.items():
         _rev.setdefault(int(_code), []).append(_sem)
-    names = {str(c): "/".join(_rev.get(c, [f"类别{c}"])) for c in classes}
-    if all(n.startswith("类别") for n in names.values()):
+    names = {str(c): "/".join(_rev.get(c, [f"Class {c}"])) for c in classes}
+    if all(n.startswith("Class") for n in names.values()):
         print("⚠️ 类名无法反查语义名,默认矩阵将退化为全开放——请检查映射文件")
     del _m, _rev
 
@@ -1145,7 +1152,7 @@ def main():
         print("=" * 60 + "\n【⑤ 建模(expansion→LEAS→需求→CARS→精度)】\n" + "=" * 60)
         run([PY, script("run_pipeline.py"), "--project", proj_path], timeout=43200)
         mark_done("5", cfg_key)
-    tick("⑤ 建模(expansion→LEAS→需求→CARS→精度)", t5,
+    tick("⑤ Modeling (expansion→LEAS→demand→CARS→accuracy)", t5,
          # 因子数只数 drivers 根目录的 df_*.tif,不含 _raw 原始下载件
          # (2026-11-13 推文校审发现:旧写法数整个目录,把 _raw 里 2 个 tif 也算成"19 个因子")
          inputs=f"{n_cls} 类 × {len(years)} 期 + "
@@ -1181,7 +1188,7 @@ def main():
         for line in (r.stdout + r.stderr).splitlines():
             if "FoM =" in line:
                 fom_line = "FoM " + line.split("FoM =")[-1].strip()
-    tick("⑥ 精度汇总(含误差分解)", t6, inputs="模拟图 + 真实图", outputs=rep_path)
+    tick("⑥ Accuracy (incl. error decomposition)", t6, inputs="模拟图 + 真实图", outputs=rep_path)
 
     # ⑦ 自动出图:模拟结果(及回测的真实图)→ 论文级 JPG
     print("=" * 60 + "\n【⑦ 结果自动出图(JPG,300dpi)】\n" + "=" * 60)
@@ -1241,7 +1248,7 @@ def main():
                 print(f"  ✅ 目标年图({_final_year}): {_final_jpg}")
             else:
                 print(f"  ⚠️ 目标年图生成失败: {(_rf.stdout + _rf.stderr)[-200:]}")
-    tick("⑦ 出图", t7, inputs=sim, outputs="; ".join(p for _, p in figs if p))
+    tick("⑦ Figures", t7, inputs=sim, outputs="; ".join(p for _, p in figs if p))
 
     # ⑦+++ 土地利用演变 GIF(2026-11-13 用户要求成果项):历史+模拟全排,轻量帧+年份标注
     gif_frames = []
@@ -1275,10 +1282,10 @@ def main():
     # 被跳过的阶段(复用缓存/--resume)也要出现在耗时表里,否则清单不完整
     _done = {t["stage"][0] for t in TIMING}
     if "①" not in _done:
-        TIMING.insert(0, {"stage": "① 土地利用下载", "seconds": 0.0,
+        TIMING.insert(0, {"stage": "① Land-use download", "seconds": 0.0,
                           "inputs": "复用已有裁切图(--data-dir)", "outputs": "-"})
     if "②" not in _done:
-        TIMING.insert(1, {"stage": "② 驱动因子下载", "seconds": 0.0,
+        TIMING.insert(1, {"stage": "② Drivers download", "seconds": 0.0,
                           "inputs": "复用已有因子(断点自动生效)", "outputs": "-"})
     try:  # 耗时落盘,便于日后只重生报告
         with open(os.path.join(data_dir, out_name, "timing.json"), "w", encoding="utf-8") as _tf:

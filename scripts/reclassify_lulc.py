@@ -35,15 +35,16 @@ except Exception:
 # 规则表(2026-11-01 文献检索整理;只有匹配到规则才给默认建议,否则要求人工判断):
 ZERO_CLASS_RULES = [
     # (前驱语义集合, 后继语义集合, 成因, 建议归宿, 依据)
-    ({"水域"}, {"不透水面"},
+    # 2026-11-17 英文包图例英文化后,每个集合追加英文别名(规则匹配双向兼容)
+    ({"水域", "Water"}, {"不透水面", "Built-up"},
      "填湖/开发区工地:建设用地开发的中间态(裸土施工期)",
      "并入建设用地",
      "本地轨迹 水→裸→建;武汉地区 PLUS 研究惯例'裸地极少时并入建设用地'(自然资源遥感 2026; MDPI Land 2026)"),
-    ({"耕地"}, {"耕地"},
+    ({"耕地", "Cropland"}, {"耕地", "Cropland"},
      "休耕/轮作:耕地管理的中间态",
      "并入耕地",
      "CLCD 裸地↔耕地存在混淆(ESSD 2021 混淆矩阵);休耕地并入耕地的农学惯例"),
-    ({"草地"}, {"草地"},
+    ({"草地", "Grassland"}, {"草地", "Grassland"},
      "分类噪声:裸地-草地混淆(CLCD 在部分区域把 >70% 裸地误分为草地)",
      "并入草地",
      "水土保持学报 2024:CLCD 裸地 71.53% 被误分为草地"),
@@ -76,7 +77,7 @@ def analyze_zero_classes(tifs, legend, mapping, zero_classes, out_dir):
         # 找该类有像元的年份(用于取坐标),以及起始年这些位置的编码(前驱)
         present_years = [n for n in names if np.isin(arrays[n], src_codes).any()]
         if not present_years:
-            notes[cls] = f"类别 {cls} 三期均无像元(纯缺席,可整体剔除)。"
+            notes[cls] = f"Class {cls} 三期均无像元(纯缺席,可整体剔除)。"
             continue
         ref = present_years[0]
         mask = np.isin(arrays[ref], src_codes)
@@ -147,29 +148,29 @@ BUILTIN_LEGENDS = {
     # CLCD(China Land Cover Dataset,Yang & Huang 2021,ESSD 13:3907-3925)
     # 图例核实自论文正文:9 类 + 0 背景
     "clcd": {
-        0: "背景", 1: "耕地", 2: "森林", 3: "灌木", 4: "草地", 5: "水域",
-        6: "冰雪", 7: "裸地", 8: "不透水面", 9: "湿地",
+        0: "Background", 1: "Cropland", 2: "Forest", 3: "Shrubland", 4: "Grassland", 5: "Water",
+        6: "Snow/Ice", 7: "Bareland", 8: "Built-up", 9: "Wetland",
     },
     # PLUS 教程数据(本实验室 project.json 记录:wh2003_refy_uc 等 7 类)
     # 1 草地 / 2 落叶林 / 3 耕地 / 4 城镇用地 / 5 裸地 / 6 水域 / 7 常绿林
     "plus_tutorial": {
-        0: "背景", 1: "草地", 2: "落叶林", 3: "耕地", 4: "城镇用地",
-        5: "裸地", 6: "水域", 7: "常绿林",
+        0: "Background", 1: "Grassland", 2: "Forest", 3: "Cropland", 4: "Built-up",
+        5: "Bareland", 6: "Water", 7: "Forest",
     },
     # ESA WorldCover v100/v200(10m 全球产品,esa-worldcover.org,CC BY 4.0)
     # 11 类编码核实自产品说明(2026-11-10);按用户决策默认并类:
     # 70 冰雪→裸地、95 红树林→湿地、100 苔藓地衣→草地(多编码同名会自然合并到同一目标编码)
     "worldcover": {
-        0: "背景", 10: "森林", 20: "灌木", 30: "草地", 40: "耕地",
-        50: "不透水面", 60: "裸地", 70: "裸地", 80: "水域",
-        90: "湿地", 95: "湿地", 100: "草地",
+        0: "Background", 10: "Forest", 20: "Shrubland", 30: "Grassland", 40: "Cropland",
+        50: "Built-up", 60: "Bareland", 70: "Bareland", 80: "Water",
+        90: "Wetland", 95: "Wetland", 100: "Grassland",
     },
     # Esri Sentinel-2 10m Land Cover(Living Atlas 条目 cfcb7609de5f478eb7666240902d4d3d
     # 描述核实,2026-11-11):9 类、2017-2025 逐年;10 云为遮挡无效→背景;
     # 9 冰雪并入裸地、11 牧场并入草地(与 WorldCover 并类口径一致)
     "esri": {
-        0: "背景", 1: "水域", 2: "森林", 4: "湿地", 5: "耕地",
-        7: "不透水面", 8: "裸地", 9: "裸地", 10: "背景", 11: "草地",
+        0: "Background", 1: "Water", 2: "Forest", 4: "Wetland", 5: "Cropland",
+        7: "Built-up", 8: "Bareland", 9: "Bareland", 10: "Background", 11: "Grassland",
     },
     # CNLUCC(中国多时期土地利用遥感监测数据集,中科院 RESDC,徐新良等)
     # 分类体系核实自 RESDC 数据说明页及多来源转载(2026-11-17):
@@ -178,16 +179,16 @@ BUILTIN_LEGENDS = {
     # 51~53→建设用地,61~67→未利用地),多编码同名会自然合并到同一目标编码
     # 语义名与其余数据源图例一致保留中文(类名英文化 = 另立项目,见 ALIGN.md 第 3 节)
     "cnlucc": {
-        0: "背景",
-        1: "耕地", 11: "耕地", 12: "耕地",
-        2: "林地", 21: "林地", 22: "林地", 23: "林地", 24: "林地",
-        3: "草地", 31: "草地", 32: "草地", 33: "草地",
-        4: "水域", 41: "水域", 42: "水域", 43: "水域",
-        44: "水域", 45: "水域", 46: "水域",
-        5: "建设用地", 51: "建设用地", 52: "建设用地", 53: "建设用地",
-        6: "未利用地", 61: "未利用地", 62: "未利用地", 63: "未利用地",
-        64: "未利用地", 65: "未利用地", 66: "未利用地", 67: "未利用地",
-        71: "建设用地",  # 填海造陆(后期数据新增,归建设用地)
+        0: "Background",
+        1: "Cropland", 11: "Cropland", 12: "Cropland",
+        2: "Forest", 21: "Forest", 22: "Forest", 23: "Forest", 24: "Forest",
+        3: "Grassland", 31: "Grassland", 32: "Grassland", 33: "Grassland",
+        4: "Water", 41: "Water", 42: "Water", 43: "Water",
+        44: "Water", 45: "Water", 46: "Water",
+        5: "Built-up", 51: "Built-up", 52: "Built-up", 53: "Built-up",
+        6: "Bareland", 61: "Bareland", 62: "Bareland", 63: "Bareland",
+        64: "Bareland", 65: "Bareland", 66: "Bareland", 67: "Bareland",
+        71: "Built-up",  # 填海造陆(后期数据新增,归建设用地)
     },
     # 用户自有数据:图例未知,必须通过 --legend-json 提供 {编码: 语义名} 编码表
     # (run_full --lulc-source user/stanford 强制要求;此处空表防误用)
@@ -197,36 +198,36 @@ BUILTIN_LEGENDS = {
     # 国内研究区基本无分布,极小类告警会提示;100 冰川并裸地(与其余图例口径一致)
     # 语义名与其余数据源图例一致保留中文(类名英文化 = 另立项目,见 ALIGN.md 第 3 节)
     "globeland30": {
-        0: "背景", 255: "背景",
-        10: "耕地", 20: "森林", 30: "草地", 40: "灌木", 50: "湿地",
-        60: "水域", 70: "苔原", 80: "建设用地", 90: "裸地", 100: "裸地",
+        0: "Background", 255: "Background",
+        10: "Cropland", 20: "Forest", 30: "Grassland", 40: "Shrubland", 50: "Wetland",
+        60: "Water", 70: "Tundra", 80: "Built-up", 90: "Bareland", 100: "Bareland",
     },
     # GLC_FCS30 / GLC_FCS30D(中科院空天院,30m,1985-2022;二级 35 类编码核实自
     # User Guides(Zenodo 8239305)与 ESSD 论文,2026-11-17):二级并一级语义类
     # (10/11/12/20 耕地;51~92 森林;120~122 灌木;130/140/150/152/153 草地;
     # 180 湿地;190 建设用地;200~202 裸地;210 水域;220 冰雪→裸地;250 为 nodata 填充)
     "glc_fcs30": {
-        0: "背景", 250: "背景",
-        10: "耕地", 11: "耕地", 12: "耕地", 20: "耕地",
-        51: "森林", 52: "森林", 61: "森林", 62: "森林", 71: "森林",
-        72: "森林", 81: "森林", 82: "森林", 91: "森林", 92: "森林",
-        120: "灌木", 121: "灌木", 122: "灌木",
-        130: "草地", 140: "草地", 150: "草地", 152: "草地", 153: "草地",
-        180: "湿地", 190: "建设用地",
-        200: "裸地", 201: "裸地", 202: "裸地",
-        210: "水域", 220: "裸地",
+        0: "Background", 250: "Background",
+        10: "Cropland", 11: "Cropland", 12: "Cropland", 20: "Cropland",
+        51: "Forest", 52: "Forest", 61: "Forest", 62: "Forest", 71: "Forest",
+        72: "Forest", 81: "Forest", 82: "Forest", 91: "Forest", 92: "Forest",
+        120: "Shrubland", 121: "Shrubland", 122: "Shrubland",
+        130: "Grassland", 140: "Grassland", 150: "Grassland", 152: "Grassland", 153: "Grassland",
+        180: "Wetland", 190: "Built-up",
+        200: "Bareland", 201: "Bareland", 202: "Bareland",
+        210: "Water", 220: "Bareland",
     },
     # MODIS MCD12Q1 IGBP 分类(LPDAAC User Guide v6.1,500m,2001-2023 逐年)
     # 17 类编码核实自官方文档(2026-11-17);并类口径:1~5 森林、6/7 灌木、
     # 8/9/10 草地、11 湿地、12/14 耕地、13 建设用地、15 冰雪→裸地、16 裸地、17 水域
     # 分辨率 500m 为粗分辨率限制,报告里会说明(与气候因子同为已知短板)
     "modis_igbp": {
-        0: "背景", 254: "背景", 255: "背景",
-        1: "森林", 2: "森林", 3: "森林", 4: "森林", 5: "森林",
-        6: "灌木", 7: "灌木",
-        8: "草地", 9: "草地", 10: "草地",
-        11: "湿地", 12: "耕地", 13: "建设用地", 14: "耕地",
-        15: "裸地", 16: "裸地", 17: "水域",
+        0: "Background", 254: "Background", 255: "Background",
+        1: "Forest", 2: "Forest", 3: "Forest", 4: "Forest", 5: "Forest",
+        6: "Shrubland", 7: "Shrubland",
+        8: "Grassland", 9: "Grassland", 10: "Grassland",
+        11: "Wetland", 12: "Cropland", 13: "Built-up", 14: "Cropland",
+        15: "Bareland", 16: "Bareland", 17: "Water",
     },
     # ESA CCI Land Cover(欧空局,300m,1992-2020 逐年;Brief User Guide 2014 +
     # Quick User Guide v2.0.7,37 类详细图例核实自官方文档,2026-11-17)
@@ -234,19 +235,19 @@ BUILTIN_LEGENDS = {
     # 100/110 树灌镶嵌→灌木;120~122 灌木;130/140/150~153 草地;
     # 160/170/180 淹水植被→湿地;190 建设用地;200~202 裸地;210 水域;220 冰雪→裸地
     "esa_cci": {
-        0: "背景",
-        10: "耕地", 11: "耕地", 12: "耕地", 20: "耕地",
-        30: "耕地", 40: "耕地",
-        50: "森林", 60: "森林", 61: "森林", 62: "森林",
-        70: "森林", 71: "森林", 72: "森林",
-        80: "森林", 81: "森林", 82: "森林", 90: "森林",
-        100: "灌木", 110: "灌木",
-        120: "灌木", 121: "灌木", 122: "灌木",
-        130: "草地", 140: "草地", 150: "草地", 152: "草地", 153: "草地",
-        160: "湿地", 170: "湿地", 180: "湿地",
-        190: "建设用地",
-        200: "裸地", 201: "裸地", 202: "裸地",
-        210: "水域", 220: "裸地",
+        0: "Background",
+        10: "Cropland", 11: "Cropland", 12: "Cropland", 20: "Cropland",
+        30: "Cropland", 40: "Cropland",
+        50: "Forest", 60: "Forest", 61: "Forest", 62: "Forest",
+        70: "Forest", 71: "Forest", 72: "Forest",
+        80: "Forest", 81: "Forest", 82: "Forest", 90: "Forest",
+        100: "Shrubland", 110: "Shrubland",
+        120: "Shrubland", 121: "Shrubland", 122: "Shrubland",
+        130: "Grassland", 140: "Grassland", 150: "Grassland", 152: "Grassland", 153: "Grassland",
+        160: "Wetland", 170: "Wetland", 180: "Wetland",
+        190: "Built-up",
+        200: "Bareland", 201: "Bareland", 202: "Bareland",
+        210: "Water", 220: "Bareland",
     },
     # FROM-GLC(清华大学宫鹏团队,30m 2015 / 10m 2017·2019)
     # 10 类编码核实自中科院地理所 2018 发布公告与 CES-UNSW 数据文档(2026-11-17):
@@ -254,9 +255,9 @@ BUILTIN_LEGENDS = {
     # 并类口径:7 苔原→草地(文献常见做法,蒙古高原一致性分析同)、10 冰雪→裸地
     # 语义名与其余数据源图例一致保留中文(类名英文化 = 另立项目,见 ALIGN.md 第 3 节)
     "from_glc": {
-        0: "背景",
-        1: "耕地", 2: "森林", 3: "草地", 4: "灌木", 5: "湿地",
-        6: "水域", 7: "草地", 8: "建设用地", 9: "裸地", 10: "裸地",
+        0: "Background",
+        1: "Cropland", 2: "Forest", 3: "Grassland", 4: "Shrubland", 5: "Wetland",
+        6: "Water", 7: "Grassland", 8: "Built-up", 9: "Bareland", 10: "Bareland",
     },
     # GlobCover 2009(ESA MERIS,300m,2005-06/2009 两期;22 类 UN-LCCS 编码)
     # 编码核实自 Product Description Manual 1.0 与 GEE catalog(2026-11-17);
@@ -264,13 +265,13 @@ BUILTIN_LEGENDS = {
     # 100/110/120 灌木;130/140/150 草地;160/170/180 湿地;190 建设用地;
     # 200 裸地;210 水域;220 冰雪→裸地;230 无数据→背景
     "globcover": {
-        0: "背景", 230: "背景",
-        11: "耕地", 14: "耕地", 20: "耕地", 30: "耕地",
-        40: "森林", 50: "森林", 60: "森林", 70: "森林", 90: "森林",
-        100: "灌木", 110: "灌木", 120: "灌木",
-        130: "草地", 140: "草地", 150: "草地",
-        160: "湿地", 170: "湿地", 180: "湿地",
-        190: "建设用地", 200: "裸地", 210: "水域", 220: "裸地",
+        0: "Background", 230: "Background",
+        11: "Cropland", 14: "Cropland", 20: "Cropland", 30: "Cropland",
+        40: "Forest", 50: "Forest", 60: "Forest", 70: "Forest", 90: "Forest",
+        100: "Shrubland", 110: "Shrubland", 120: "Shrubland",
+        130: "Grassland", 140: "Grassland", 150: "Grassland",
+        160: "Wetland", 170: "Wetland", 180: "Wetland",
+        190: "Built-up", 200: "Bareland", 210: "Water", 220: "Bareland",
     },
     # MODIS MCD12Q1 UMD 分类(LC_Type2,500m,2001-2023 逐年)
     # 编码核实自 LPDAAC User Guide v6.1(2026-11-17):1~5 森林、6/7 灌丛、
@@ -280,12 +281,12 @@ BUILTIN_LEGENDS = {
     #    数据里含 0 时 reclassify 会报错提示(而非静默丢成背景);
     #    上传前请先用 GIS 把水体 0 重编码(如 0→18),SKILL.md 速查表有注
     "modis_umd": {
-        254: "背景", 255: "背景",
-        1: "森林", 2: "森林", 3: "森林", 4: "森林", 5: "森林",
-        6: "灌木", 7: "灌木",
-        8: "草地", 9: "草地", 10: "草地",
-        12: "耕地", 13: "建设用地", 14: "耕地",
-        15: "裸地", 16: "裸地",
+        254: "Background", 255: "Background",
+        1: "Forest", 2: "Forest", 3: "Forest", 4: "Forest", 5: "Forest",
+        6: "Shrubland", 7: "Shrubland",
+        8: "Grassland", 9: "Grassland", 10: "Grassland",
+        12: "Cropland", 13: "Built-up", 14: "Cropland",
+        15: "Bareland", 16: "Bareland",
     },
     # TODO 待核实后加入:其他数据源 …
 }
@@ -309,7 +310,7 @@ def reclassify(src_path, legend, mapping, out_path):
         unmapped = []
         for code in src_codes:
             name = legend.get(int(code))
-            if name == "背景":
+            if name == "Background":
                 continue  # background classes (0/cloud/255 fill etc.) always map to 0,
                           # exempt from the mapping check (2026-11-17 fix: previously only
                           # "code 0 named 背景" was exempt; Esri's 10 [cloud] and
@@ -328,7 +329,7 @@ def reclassify(src_path, legend, mapping, out_path):
         out = np.zeros_like(a)
         for code in src_codes:
             name = legend.get(int(code))
-            target = 0 if (int(code) == 0 or name == "背景") else mapping[name]
+            target = 0 if (int(code) == 0 or name == "Background") else mapping[name]
             out[a == code] = target
 
         # 检查输出编码连续性(PLUS 要求从 1 开始连续)

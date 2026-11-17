@@ -37,13 +37,13 @@
 ## F5 (explanatory). The correct way to regionalize the transition matrix: project.json's matrix_restrictions
 
 - Regionalizing the matrix (e.g. no lake filling, allow forest→cropland) requires no script changes; two ways:
-  ① In the Q&A, choose "Regional customization", and the AI automatically researches the region + literature/policy and generates rules, passed as a parameter: `--matrix-restrictions '[{"from":"水域","to":"建设用地","allow":false,"依据":"Yangtze River Protection Law art. 25"}]'` (SKILL.md requires the AI to do this automatically — never make the user edit it);
+  ① In the Q&A, choose "Regional customization", and the AI automatically researches the region + literature/policy and generates rules, passed as a parameter: `--matrix-restrictions '[{"from":"Water","to":"Built-up","allow":false,"依据":"Yangtze River Protection Law art. 25"}]'` (SKILL.md requires the AI to do this automatically — never make the user edit it);
   ② or edit `matrix_restrictions` in the generated `project_full_*.json`.
   Rules and their bases go into the summary report's "3b. Transition matrix rules" section (baseline + each change + basis) — fully traceable.
 - Example:
   ```json
   "matrix_restrictions": [
-    {"from": "水域", "to": "建设用地", "allow": false, "依据": "Yangtze River Protection Law art. 25/26, no encroachment on rivers and lakes"}
+    {"from": "Water", "to": "Built-up", "allow": false, "依据": "Yangtze River Protection Law art. 25/26, no encroachment on rivers and lakes"}
   ]
   ```
 - Note: the advisor's local copy once used an "environment variable injection point" for the same feature; the official entry point of this skill is `matrix_restrictions` (explained in SKILL.md's item-8 dialog).

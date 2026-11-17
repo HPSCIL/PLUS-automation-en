@@ -252,7 +252,7 @@ def add_legend(ax, classes, color_table, labels, font, ncol, x=0.02, outside=Fal
     for i, c in enumerate(classes):
         code = int(c)
         name = (labels or {}).get(code, "")
-        text = f"{code} {name}" if name else f"地类 {code}"
+        text = f"{code} {name}" if name else f"Class {code}"
         legend_patches.append(Patch(facecolor=color_table[code - 1], label=text))
     if outside:
         fig = ax.figure
@@ -293,7 +293,7 @@ def make_landuse_map(tif_path, output_path, title=None, dpi=300,
         return False
 
     # 名称来源优先级:对话直给(--names)> 名称表文件(--labels)
-    # > 自动找 tif 同目录同名 _labels.csv > 没有(图例显示"地类 编码")
+    # > 自动找 tif 同目录同名 _labels.csv > 没有(图例显示"Class code")
     label_colors = {}
     if names and labels is None:
         labels = parse_names(names)
@@ -434,7 +434,7 @@ def make_sequence_map(tif_year_pairs, output_path, names=None, dpi=150, title=No
     参数:
         tif_year_pairs  [(tif_path, year), ...],按时间顺序
         output_path     输出 PNG 路径
-        names           "1=耕地,2=森林,..." 或 None(图例显示"地类 编码")
+        names           "1=耕地,2=森林,..." 或 None(图例显示"Class code")
         dpi             150(对比图可低于单图 300)
         title           整图大标题,如"郑州市 2030-2036 年土地利用对比"(2026-11-10 用户要求;
                         放顶部居中,与右上指北针同排不重叠)
@@ -485,7 +485,7 @@ def make_sequence_map(tif_year_pairs, output_path, names=None, dpi=150, title=No
 
     handles = [Patch(facecolor=color_table[c - 1],
                      label=(labels or {}).get(c, "") and f"{c} {(labels or {}).get(c, '')}"
-                            or f"地类 {c}") for c in classes]
+                            or f"Class {c}") for c in classes]
     # 底部两行(2026-11-10 用户定):图例在上,比例尺单独一行放图例下面;
     # 用户 2026-11-11 要求比例尺变小 → 条高 0.024、刻度字 10(整体元素缩小)
     if title:
