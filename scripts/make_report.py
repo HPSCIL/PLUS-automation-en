@@ -634,7 +634,7 @@ def build_report(data_dir, out_name, proj, predict, region,
             f"forest + "
             f"{'Markov chain' if proj.get('demand') == 'markov' else 'linear regression'} demand + "
             f"CARS patch simulation)")
-    if seq:
+    if seq and len(seq) > 1:
         head += f" projects the {target} land-use pattern in a chained manner (intermediate epochs {' / '.join(str(s['year']) for s in seq[:-1])})"
     else:
         head += f" projects the {target} land-use pattern"
