@@ -1084,8 +1084,11 @@ def main():
     }
     # 水域锁定(前期问答:水域是否锁定不转换);锁定则水域行只允许自转
     if args.water == "lock":
+        # 2026-11-18 修(WB 香港 2050 实测):旧实现子串匹配只认中文("水域"等),
+        # 英文包图例英文化后 "Water" 静默失效 → 锁定被忽略。改走同义族匹配(中英兼容)
+        from run_pipeline import WATER_CLASSES, _matches_any
         water_names = [n for n in names.values()
-                       if any(a in n for a in ("水域", "水体", "湿地", "湖泊", "水库"))]
+                       if _matches_any(n, WATER_CLASSES)]
         if water_names:
             proj["locked_classes"] = water_names  # 用实际类名(lock_classes 按别名再匹配一次)
             proj["data_notes"] = (notes + "\n水域锁定不转换(前期问答用户选择):"
@@ -1118,6 +1121,8 @@ def main():
     # 区域化转换矩阵(FAQ F5):若同名 project json 已存在,继承其中人工/AI 写的
     # matrix_restrictions —— 旧实现每次无条件覆盖,"先跑一次→改 json→再跑"的编辑必丢
     # (2026-11-10 修)。约束模板可以只写 matrix_restrictions 这一个字段,其余字段仍按本次参数重建。
+    # 2026-11-18 修(WB 香港 2050 实测):命令行新给的规则被旧 json 覆盖导致矩阵没生效——
+    # 改为**命令行优先**:本次给了 --matrix-restrictions 就全用本次的;没给才继承 json。
     if os.path.exists(proj_path):
         try:
             with open(proj_path, encoding="utf-8") as f:
@@ -1126,7 +1131,7 @@ def main():
             _prev = {}
             print(f"  ⚠️ 既有项目配置读取失败({_e}),按默认矩阵继续")
         _rest = _prev.get("matrix_restrictions") or []
-        if _rest:
+        if _rest and not restrictions:
             proj["matrix_restrictions"] = _rest
             _desc = ";".join(
                 f"{r.get('from')}→{r.get('to')}{'允许' if r.get('allow', True) else '禁止'}"
@@ -1135,6 +1140,9 @@ def main():
             if "区域化转换矩阵" not in (proj.get("data_notes") or ""):
                 proj["data_notes"] = (proj.get("data_notes") or "") + "\n" + _line
             print(f"  🧩 继承既有区域化矩阵 {len(_rest)} 条:{_desc}")
+        elif _rest and restrictions:
+            print(f"  ℹ️ 本次命令行给了 {len(restrictions)} 条矩阵规则,优先使用;"
+                  f"忽略同名 json 里的 {len(_rest)} 条旧规则")
     with open(proj_path, "w", encoding="utf-8") as f:
         json.dump(proj, f, ensure_ascii=False, indent=2)
     print(f"  项目配置已生成: {proj_path}")
