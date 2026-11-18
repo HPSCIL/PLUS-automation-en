@@ -85,6 +85,7 @@ Round 2 · backtest mode / prediction settings / policy constraints
 Round 3 · policy & output
   8. Which transition matrix?
      · Regional customization (AI decides automatically) (recommended): the AI gathers info about the region (water bodies, ecological red lines, drinking-water sources, relevant laws and literature) and sets rules from literature and policy; if no special constraints, it falls back to the default template and says so.
+       **The "依据" (basis) field of every matrix rule must be written in English** — the summary report prints it verbatim and the report is fully English (2026-11-18).
        **Whether water is locked is part of the matrix rules and is decided here**: if the search shows the region's water matters (major river/lake/water source) → add "water → others forbidden" to the matrix rules automatically (attach the basis); if water is not important → do not lock, and explain why.
        **Water-scarce cities / water-source protection areas must use a two-way lock** (no out-conversion + no in-conversion): out-only lock lets other classes "pour into" water per historical probabilities and inflate it (Zhengzhou 2026-11-13 measured +32%); two-way lock freezes the water area;
        regions with ecological water replenishment / new water-surface plans may allow in-conversion, with the basis attached.
